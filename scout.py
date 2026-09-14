@@ -6,13 +6,45 @@ import os
 
 st.set_page_config(page_title="Modo Carreira Manager", layout="wide", page_icon="⚽")
 
+# --- ESTILIZAÇÃO VISUAL (CSS PERSONALIZADO) ---
+st.markdown("""
+    <style>
+    /* Estilizando as caixas de métricas (Cards) */
+    div[data-testid="metric-container"] {
+        background-color: #1E1E2E; /* Cor de fundo do card (Escuro) */
+        border: 1px solid #333;
+        padding: 5% 5% 5% 10%;
+        border-radius: 12px;
+        color: white;
+        box-shadow: 3px 3px 15px rgba(0,0,0,0.3);
+        border-left: 5px solid #00FF87; /* Detalhe verde neon na esquerda */
+        transition: transform 0.2s;
+    }
+    
+    div[data-testid="metric-container"]:hover {
+        transform: translateY(-3px); /* Efeito de pular ao passar o mouse */
+    }
+    
+    /* Cor do texto do título do Card */
+    div[data-testid="metric-container"] label {
+        color: #A0A0B0 !important;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    
+    /* Escondendo o menu padrão do Streamlit para visual mais limpo */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
 # --- SISTEMA DE ARMAZENAMENTO ---
 DB_FILE = "database_carreira.csv"
 
 def carregar_dados():
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE)
-        # Proteção: Garante que as colunas de estatísticas existam (para compatibilidade com seu save antigo)
+        # Proteção: Garante que as colunas de estatísticas existam
         estatisticas_novas = ['Gols', 'Assistências', 'Chutes Certos', 'Passes Certos', 'Desarmes', 'Clean Sheets']
         for col in estatisticas_novas:
             if col not in df.columns:
@@ -95,7 +127,7 @@ if nome_in and not df_atual.empty:
             def_stats[stat] = int(jogador_existente.iloc[0].get(stat, 0))
 
 st.sidebar.subheader("Estatísticas da Temporada")
-with st.sidebar.expander("Preencher Estatísticas (Opcional)", expanded=False):
+with st.sidebar.expander("Preencher Estatísticas", expanded=False):
     gols_in = st.number_input("Gols", min_value=0, value=def_stats['Gols'], step=1)
     asts_in = st.number_input("Assistências", min_value=0, value=def_stats['Assistências'], step=1)
     chutes_in = st.number_input("Chutes Certos", min_value=0, value=def_stats['Chutes Certos'], step=1)
@@ -133,7 +165,7 @@ if st.sidebar.button("💾 Salvar Atleta"):
         st.rerun()
 
 # --- CONTEÚDO PRINCIPAL ---
-st.title("⚽ Dashboard do Manager")
+st.title("⚽ Dashboard Manager PRO")
 df = carregar_dados()
 
 if not df.empty:
@@ -150,6 +182,7 @@ if not df.empty:
             c3.metric("Idade Média", round(df_elenco['Idade'].mean(), 1))
             c4.metric("Valor Total do Elenco", f"€ {df_elenco['Valor (€M)'].sum():.1f}M")
             
+            st.markdown("<br>", unsafe_allow_html=True)
             colunas_exibicao = ['Nome', 'Posição', 'Idade', 'OVR', 'Potencial', 'Valor (€M)', 'Gols', 'Assistências']
             st.dataframe(df_elenco[colunas_exibicao].sort_values(by='OVR', ascending=False), use_container_width=True, hide_index=True)
         else:
@@ -187,6 +220,7 @@ if not df.empty:
         fig_fit = px.bar(fit_df, x='Fit %', y='Estilo', orientation='h', color='Fit %', 
                          color_continuous_scale='RdYlGn', range_x=[0, 100], text='Fit %')
         fig_fit.update_traces(textposition='outside')
+        fig_fit.update_layout(template="plotly_dark", height=400) # Gráfico com tema escuro
         st.plotly_chart(fig_fit, use_container_width=True)
 
     with tab3:
@@ -200,7 +234,7 @@ if not df.empty:
             fig = go.Figure()
             fig.add_trace(go.Scatterpolar(r=[d_treino.get(a, 0) for a in alvo_atts], theta=alvo_atts, fill='toself', name='Atual'))
             fig.add_trace(go.Scatterpolar(r=[d_treino['Potencial']] * len(alvo_atts), theta=alvo_atts, line_dash='dash', name='Meta (Potencial)'))
-            fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 99])))
+            fig.update_layout(template="plotly_dark", polar=dict(radialaxis=dict(visible=True, range=[0, 99]))) # Gráfico Escuro
             st.plotly_chart(fig, use_container_width=True)
             
         with c2:
@@ -223,13 +257,12 @@ if not df.empty:
         fig_c = go.Figure()
         fig_c.add_trace(go.Scatterpolar(r=[d1.get(a, 0) for a in atts_c], theta=atts_c, fill='toself', name=j1))
         fig_c.add_trace(go.Scatterpolar(r=[d2.get(a, 0) for a in atts_c], theta=atts_c, fill='toself', name=j2))
-        fig_c.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 99]))) 
+        fig_c.update_layout(template="plotly_dark", polar=dict(radialaxis=dict(visible=True, range=[0, 99]))) # Gráfico Escuro 
         st.plotly_chart(fig_c, use_container_width=True)
 
     with tab5:
         st.header("🏆 Ranking de Desempenho")
         
-        # Filtros de visualização
         col_f1, col_f2 = st.columns(2)
         pos_ranking = col_f1.selectbox("Filtrar por Posição:", ["Todas"] + list(SUGESTOES_POSICAO.keys()))
         metrica_ranking = col_f2.selectbox("Critério de Ranking:", ["Gols", "Assistências", "Chutes Certos", "Passes Certos", "Desarmes", "Clean Sheets"])
@@ -242,15 +275,14 @@ if not df.empty:
         if not df_rank.empty:
             df_rank = df_rank.sort_values(by=metrica_ranking, ascending=False)
             
-            # Mostra Top 5 em Gráfico
             st.subheader(f"Top 5 - {metrica_ranking}")
             top5 = df_rank.head(5)
             fig_rank = px.bar(top5, x='Nome', y=metrica_ranking, text=metrica_ranking,
-                              color=metrica_ranking, color_continuous_scale='Blues')
+                              color=metrica_ranking, color_continuous_scale='Greens')
             fig_rank.update_traces(textposition='outside')
+            fig_rank.update_layout(template="plotly_dark") # Gráfico Escuro
             st.plotly_chart(fig_rank, use_container_width=True)
             
-            # Tabela completa
             st.subheader("Tabela Completa de Estatísticas")
             colunas_stats = ['Nome', 'Posição', 'Gols', 'Assistências', 'Chutes Certos', 'Passes Certos', 'Desarmes', 'Clean Sheets']
             st.dataframe(df_rank[colunas_stats], use_container_width=True, hide_index=True)
