@@ -85,13 +85,20 @@ def salvar_dados(df_novo):
 
 df_atual = carregar_dados()
 
-# --- CONFIGURAÇÕES TÁTICAS ---
+# --- CONFIGURAÇÕES TÁTICAS (NOVAS POSIÇÕES DETALHADAS) ---
 SUGESTOES_POSICAO = {
-    "Atacante": ["Finalização", "Velocidade", "Agilidade", "Controle de Bola", "Posicionamento", "Força"],
+    "Goleiro": ["Reflexo", "Elasticidade", "Saída de Gol", "Posicionamento", "Jogo com os Pés", "Comunicação"],
     "Zagueiro": ["Posicionamento", "Força", "Impulsão", "Cabeceio", "Divididas", "Desarme"],
-    "Meio-Campo": ["Visão", "Passe", "Controle de Bola", "Resistência", "Interceptação", "Agilidade"],
-    "Lateral": ["Velocidade", "Cruzamento", "Resistência", "Desarme", "Drible", "Passe Curto"],
-    "Goleiro": ["Reflexo", "Elasticidade", "Saída de Gol", "Posicionamento", "Jogo com os Pés", "Comunicação"]
+    "Lateral Direito": ["Velocidade", "Cruzamento", "Resistência", "Desarme", "Drible", "Passe Curto"],
+    "Lateral Esquerdo": ["Velocidade", "Cruzamento", "Resistência", "Desarme", "Drible", "Passe Curto"],
+    "Volante": ["Desarme", "Interceptação", "Resistência", "Passe Curto", "Força", "Posicionamento"],
+    "Meia Central": ["Visão", "Passe", "Controle de Bola", "Resistência", "Interceptação", "Agilidade"],
+    "Meia Direito": ["Velocidade", "Cruzamento", "Passe", "Visão", "Controle de Bola", "Resistência"],
+    "Meia Esquerdo": ["Velocidade", "Cruzamento", "Passe", "Visão", "Controle de Bola", "Resistência"],
+    "Meia Atacante": ["Visão", "Passe", "Drible", "Agilidade", "Finalização", "Controle de Bola"],
+    "Ponta Direito": ["Velocidade", "Drible", "Agilidade", "Cruzamento", "Finalização", "Controle de Bola"],
+    "Ponta Esquerdo": ["Velocidade", "Drible", "Agilidade", "Cruzamento", "Finalização", "Controle de Bola"],
+    "Centroavante": ["Finalização", "Posicionamento", "Força", "Cabeceio", "Impulsão", "Controle de Bola"]
 }
 
 TODOS_ATRIBUTOS = list(set([item for sublist in SUGESTOES_POSICAO.values() for item in sublist] + 
@@ -107,11 +114,59 @@ ESTILOS_TATICOS = {
 }
 
 FUNCOES_TATICAS = {
-    "Atacante": {"Falso 9": ["Passe Curto", "Visão", "Controle de Bola", "Drible"], "Homem Alvo": ["Força", "Impulsão", "Cabeceio", "Posicionamento"], "Atacante Avançado": ["Velocidade", "Agilidade", "Finalização", "Posicionamento"]},
-    "Zagueiro": {"Zagueiro Raiz (Defensivo)": ["Força", "Divididas", "Desarme", "Cabeceio"], "Zagueiro Construtor": ["Passe Curto", "Visão", "Controle de Bola", "Posicionamento"]},
-    "Meio-Campo": {"Box-to-Box (Área a Área)": ["Resistência", "Velocidade", "Divididas", "Finalização"], "Armador Avançado": ["Visão", "Passe", "Controle de Bola", "Drible", "Passe Curto"], "Primeiro Volante (Cão de Guarda)": ["Desarme", "Interceptação", "Força", "Posicionamento"]},
-    "Lateral": {"Ala Ofensivo": ["Velocidade", "Cruzamento", "Drible", "Resistência", "Agilidade"], "Lateral Defensivo": ["Desarme", "Posicionamento", "Força", "Interceptação"]},
-    "Goleiro": {"Goleiro Tradicional": ["Reflexo", "Elasticidade", "Posicionamento", "Comunicação"], "Goleiro Líbero": ["Jogo com os Pés", "Saída de Gol", "Visão", "Passe Curto"]}
+    "Goleiro": {
+        "Goleiro Tradicional": ["Reflexo", "Elasticidade", "Posicionamento", "Comunicação"], 
+        "Goleiro Líbero": ["Jogo com os Pés", "Saída de Gol", "Visão", "Passe Curto"]
+    },
+    "Zagueiro": {
+        "Zagueiro Raiz (Defensivo)": ["Força", "Divididas", "Desarme", "Cabeceio"], 
+        "Zagueiro Construtor": ["Passe Curto", "Visão", "Controle de Bola", "Posicionamento"]
+    },
+    "Lateral Direito": {
+        "Ala Ofensivo": ["Velocidade", "Cruzamento", "Drible", "Resistência", "Agilidade"], 
+        "Lateral Defensivo": ["Desarme", "Posicionamento", "Força", "Interceptação"]
+    },
+    "Lateral Esquerdo": {
+        "Ala Ofensivo": ["Velocidade", "Cruzamento", "Drible", "Resistência", "Agilidade"], 
+        "Lateral Defensivo": ["Desarme", "Posicionamento", "Força", "Interceptação"]
+    },
+    "Volante": {
+        "Primeiro Volante (Cão de Guarda)": ["Desarme", "Interceptação", "Força", "Posicionamento"], 
+        "Segundo Volante": ["Resistência", "Passe Curto", "Divididas", "Visão"],
+        "Armador Recuado": ["Visão", "Passe", "Controle de Bola", "Posicionamento"]
+    },
+    "Meia Central": {
+        "Box-to-Box (Área a Área)": ["Resistência", "Velocidade", "Divididas", "Finalização"], 
+        "Armador Central": ["Visão", "Passe", "Controle de Bola", "Drible", "Passe Curto"], 
+        "Meia Recuperador": ["Desarme", "Interceptação", "Resistência", "Posicionamento"]
+    },
+    "Meia Direito": {
+        "Meia Aberto": ["Velocidade", "Cruzamento", "Resistência", "Passe", "Controle de Bola"],
+        "Armador Aberto": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"]
+    },
+    "Meia Esquerdo": {
+        "Meia Aberto": ["Velocidade", "Cruzamento", "Resistência", "Passe", "Controle de Bola"],
+        "Armador Aberto": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"]
+    },
+    "Meia Atacante": {
+        "Camisa 10 Clássico": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"],
+        "Trequartista": ["Visão", "Passe", "Drible", "Finalização", "Posicionamento"],
+        "Atacante Sombra": ["Finalização", "Posicionamento", "Velocidade", "Agilidade"]
+    },
+    "Ponta Direito": {
+        "Ponta Clássico (Fundo)": ["Velocidade", "Cruzamento", "Drible", "Agilidade"],
+        "Ponta Invertido": ["Velocidade", "Drible", "Finalização", "Agilidade", "Visão"]
+    },
+    "Ponta Esquerdo": {
+        "Ponta Clássico (Fundo)": ["Velocidade", "Cruzamento", "Drible", "Agilidade"],
+        "Ponta Invertido": ["Velocidade", "Drible", "Finalização", "Agilidade", "Visão"]
+    },
+    "Centroavante": {
+        "Falso 9": ["Passe Curto", "Visão", "Controle de Bola", "Drible"], 
+        "Homem Alvo": ["Força", "Impulsão", "Cabeceio", "Posicionamento"], 
+        "Atacante Avançado": ["Velocidade", "Agilidade", "Finalização", "Posicionamento"],
+        "Centroavante Fixo": ["Finalização", "Cabeceio", "Força", "Posicionamento"]
+    }
 }
 
 # ==========================================
@@ -166,7 +221,6 @@ elif menu == "🔍 Central de Olheiros":
         with col_form1:
             nome_in = st.text_input("Nome do Atleta (Digite e tecle Enter para carregar dados)").strip()
             
-            # Lógica de auto-preenchimento completo
             jog_dados = {}
             if nome_in and not df_atual.empty:
                 busca = df_atual[df_atual['Nome'].str.lower() == nome_in.lower()]
@@ -181,7 +235,7 @@ elif menu == "🔍 Central de Olheiros":
             status_in = st.selectbox("Status", lista_status, index=get_index(lista_status, jog_dados.get('Status', 'Meu Elenco')))
             
             lista_pos = list(SUGESTOES_POSICAO.keys())
-            pos_in = st.selectbox("Posição Principal", lista_pos, index=get_index(lista_pos, jog_dados.get('Posição', 'Atacante')))
+            pos_in = st.selectbox("Posição Principal", lista_pos, index=get_index(lista_pos, jog_dados.get('Posição', 'Centroavante')))
             
             st.markdown("##### Perfil do Atleta")
             cx1, cx2, cx3, cx4 = st.columns(4)
