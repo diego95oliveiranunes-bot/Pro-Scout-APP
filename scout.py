@@ -38,6 +38,31 @@ ESTILOS_TATICOS = {
     "Contra-Ataque Rápido": ["Velocidade", "Agilidade", "Finalização", "Drible", "Visão"]
 }
 
+FUNCOES_TATICAS = {
+    "Atacante": {
+        "Falso 9": ["Passe Curto", "Visão", "Controle de Bola", "Drible"],
+        "Homem Alvo": ["Força", "Impulsão", "Cabeceio", "Posicionamento"],
+        "Atacante Avançado": ["Velocidade", "Agilidade", "Finalização", "Posicionamento"]
+    },
+    "Zagueiro": {
+        "Zagueiro Raiz (Defensivo)": ["Força", "Divididas", "Desarme", "Cabeceio"],
+        "Zagueiro Construtor": ["Passe Curto", "Visão", "Controle de Bola", "Posicionamento"]
+    },
+    "Meio-Campo": {
+        "Box-to-Box (Área a Área)": ["Resistência", "Velocidade", "Divididas", "Finalização"],
+        "Armador Avançado": ["Visão", "Passe", "Controle de Bola", "Drible", "Passe Curto"],
+        "Primeiro Volante (Cão de Guarda)": ["Desarme", "Interceptação", "Força", "Posicionamento"]
+    },
+    "Lateral": {
+        "Ala Ofensivo": ["Velocidade", "Cruzamento", "Drible", "Resistência", "Agilidade"],
+        "Lateral Defensivo": ["Desarme", "Posicionamento", "Força", "Interceptação"]
+    },
+    "Goleiro": {
+        "Goleiro Tradicional": ["Reflexo", "Elasticidade", "Posicionamento", "Comunicação"],
+        "Goleiro Líbero": ["Jogo com os Pés", "Saída de Gol", "Visão", "Passe Curto"]
+    }
+}
+
 # --- INTERFACE LATERAL (REGISTRO) ---
 st.sidebar.header("📝 Registrar / Atualizar Atleta")
 
@@ -60,7 +85,7 @@ with st.sidebar.expander("Preencher Atributos Chave", expanded=False):
         
     comp = [a for a in TODOS_ATRIBUTOS if a not in SUGESTOES_POSICAO[pos_in]]
     for a in comp:
-        attrs_val[a] = st.number_input(a, min_value=0, max_value=99, value=ovr_in-10, step=1, key=f"c_{a}")
+        attrs_val[a] = st.number_input(a, min_value=0, max_value=99, value=max(1, ovr_in-10), step=1, key=f"c_{a}")
 
 if st.sidebar.button("💾 Salvar Atleta"):
     if nome_in:
@@ -106,12 +131,40 @@ if not df.empty:
             st.warning("Seu elenco está vazio. Registre jogadores e marque o status como 'Meu Elenco'.")
 
     with tab2:
+        st.header("Análise Tática Individual")
         sel = st.selectbox("Selecione o Atleta para Análise Tática:", df['Nome'].unique())
         d = df[df['Nome'] == sel].iloc[0]
+        
+        # --- CÁLCULO DA FUNÇÃO TÁTICA IDEAL ---
+        posicao_jogador = d['Posição']
+        funcoes_possiveis = FUNCOES_TATICAS.get(posicao_jogador, {})
+        
+        if funcoes_possiveis:
+            notas_funcoes = {}
+            for funcao, atributos_necessarios in funcoes_possiveis.items():
+                nota_media = sum([d.get(a, 0) for a in atributos_necessarios]) / len(atributos_necessarios)
+                notas_funcoes[funcao] = nota_media
+                
+            funcoes_ordenadas = sorted(notas_funcoes.items(), key=lambda x: x[1], reverse=True)
+            melhor_funcao, melhor_nota = funcoes_ordenadas[0]
+            
+            st.success(f"**Recomendação do Auxiliar:** A melhor função para **{d['Nome']}** é **{melhor_funcao}** (Aptidão: {melhor_nota:.1f}/99)")
+            
+            st.write("Aptidão para outras funções na posição:")
+            for func, nota in funcoes_ordenadas[1:]:
+                st.write(f"- {func}: {nota:.1f}")
+                
+        st.divider()
+
+        # --- FIT COM O ESTILO DO TIME ---
+        st.subheader("Compatibilidade com o Estilo de Jogo da Equipe")
         fits = {e: round(sum([d.get(a, 0) for a in atts]) / len(atts), 1) for e, atts in ESTILOS_TATICOS.items()}
         fit_df = pd.DataFrame(list(fits.items()), columns=['Estilo', 'Fit %'])
-        st.plotly_chart(px.bar(fit_df, x='Fit %', y='Estilo', orientation='h', color='Fit %', 
-                               color_continuous_scale='RdYlGn', range_x=[0, 100]), use_container_width=True)
+        
+        fig_fit = px.bar(fit_df, x='Fit %', y='Estilo', orientation='h', color='Fit %', 
+                         color_continuous_scale='RdYlGn', range_x=[0, 100], text='Fit %')
+        fig_fit.update_traces(textposition='outside')
+        st.plotly_chart(fig_fit, use_container_width=True)
 
     with tab3:
         sel_treino = st.selectbox("Atleta para Treino:", df['Nome'].unique(), key='treino_sel')
@@ -147,10 +200,9 @@ if not df.empty:
         fig_c = go.Figure()
         fig_c.add_trace(go.Scatterpolar(r=[d1.get(a, 0) for a in atts_c], theta=atts_c, fill='toself', name=j1))
         fig_c.add_trace(go.Scatterpolar(r=[d2.get(a, 0) for a in atts_c], theta=atts_c, fill='toself', name=j2))
-        fig_c.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 99]))) # Eixo travado em 99 para comparação real
+        fig_c.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 99]))) 
         st.plotly_chart(fig_c, use_container_width=True)
 
-    # Área de Gerenciamento de Dados no final da página
     st.divider()
     with st.expander("⚙️ Gerenciar Banco de Dados"):
         jogador_excluir = st.selectbox("Selecione um jogador para remover do banco:", df['Nome'].unique())
