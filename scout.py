@@ -6,6 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe, get_as_dataframe
 import json
+import os
 
 st.set_page_config(page_title="ProScout Analyst", layout="wide", page_icon="📊")
 
@@ -36,7 +37,6 @@ st.markdown("""
 # ==========================================
 # CONEXÃO COM GOOGLE SHEETS
 # ==========================================
-# Tenta conectar; se der erro, avisa na tela
 @st.cache_resource
 def get_gspread_client():
     try:
@@ -53,15 +53,13 @@ def carregar_dados():
     client = get_gspread_client()
     if client:
         try:
-            # O nome aqui DEVE ser exatamente o nome da sua planilha no Google Drive
             sheet = client.open("Database_Scout").worksheet("Jogadores")
             df = get_as_dataframe(sheet, evaluate_formulas=True)
-            df = df.dropna(how='all').dropna(axis=1, how='all') # Limpa colunas e linhas vazias
+            df = df.dropna(how='all').dropna(axis=1, how='all')
             
             if df.empty or 'Nome' not in df.columns:
                 return pd.DataFrame()
             
-            # Garante que as colunas novas existam
             estatisticas_novas = ['Gols', 'Assistências', 'Chutes Certos', 'Passes Certos', 'Desarmes', 'Clean Sheets']
             for col in estatisticas_novas:
                 if col not in df.columns:
@@ -166,35 +164,43 @@ elif menu == "🔍 Central de Olheiros":
         col_form1, col_form2 = st.columns(2)
         
         with col_form1:
-            nome_in = st.text_input("Nome do Atleta (Digite e tecle Enter para carregar stats)").strip()
-            status_in = st.selectbox("Status", ["Meu Elenco", "Alvo de Transferência"])
-            pos_in = st.selectbox("Posição Principal", list(SUGESTOES_POSICAO.keys()))
+            nome_in = st.text_input("Nome do Atleta (Digite e tecle Enter para carregar dados)").strip()
+            
+            # Lógica de auto-preenchimento completo
+            jog_dados = {}
+            if nome_in and not df_atual.empty:
+                busca = df_atual[df_atual['Nome'].str.lower() == nome_in.lower()]
+                if not busca.empty:
+                    jog_dados = busca.iloc[0].to_dict()
+                    st.success("✅ Dados do jogador carregados! Edite o que for necessário abaixo.")
+            
+            def get_index(lista, valor):
+                return lista.index(valor) if valor in lista else 0
+
+            lista_status = ["Meu Elenco", "Alvo de Transferência"]
+            status_in = st.selectbox("Status", lista_status, index=get_index(lista_status, jog_dados.get('Status', 'Meu Elenco')))
+            
+            lista_pos = list(SUGESTOES_POSICAO.keys())
+            pos_in = st.selectbox("Posição Principal", lista_pos, index=get_index(lista_pos, jog_dados.get('Posição', 'Atacante')))
             
             st.markdown("##### Perfil do Atleta")
             cx1, cx2, cx3, cx4 = st.columns(4)
-            idade_in = cx1.number_input("Idade", 15, 45, 22)
-            ovr_in = cx2.number_input("OVR", 1, 99, 75)
-            pot_in = cx3.number_input("Potencial", 1, 99, 85)
-            valor_in = cx4.number_input("Valor (€M)", 0.0, step=0.5, value=10.0)
+            idade_in = cx1.number_input("Idade", 15, 45, int(jog_dados.get('Idade', 22)))
+            ovr_in = cx2.number_input("OVR", 1, 99, int(jog_dados.get('OVR', 75)))
+            pot_in = cx3.number_input("Potencial", 1, 99, int(jog_dados.get('Potencial', 85)))
+            valor_in = cx4.number_input("Valor (€M)", 0.0, step=0.5, value=float(jog_dados.get('Valor (€M)', 10.0)))
 
-        def_stats = {'Gols': 0, 'Assistências': 0, 'Chutes Certos': 0, 'Passes Certos': 0, 'Desarmes': 0, 'Clean Sheets': 0}
-        if nome_in and not df_atual.empty:
-            jogador_existente = df_atual[df_atual['Nome'].str.lower() == nome_in.lower()]
-            if not jogador_existente.empty:
-                for stat in def_stats.keys():
-                    def_stats[stat] = int(jogador_existente.iloc[0].get(stat, 0))
-        
         with col_form2:
             st.markdown("##### Estatísticas da Temporada")
             cs1, cs2, cs3 = st.columns(3)
-            gols_in = cs1.number_input("Gols", 0, value=def_stats['Gols'])
-            asts_in = cs2.number_input("Assistências", 0, value=def_stats['Assistências'])
-            chutes_in = cs3.number_input("Chutes Certos", 0, value=def_stats['Chutes Certos'])
+            gols_in = cs1.number_input("Gols", 0, value=int(jog_dados.get('Gols', 0)))
+            asts_in = cs2.number_input("Assistências", 0, value=int(jog_dados.get('Assistências', 0)))
+            chutes_in = cs3.number_input("Chutes Certos", 0, value=int(jog_dados.get('Chutes Certos', 0)))
             
             cs4, cs5, cs6 = st.columns(3)
-            passes_in = cs4.number_input("Passes Certos", 0, value=def_stats['Passes Certos'])
-            desarmes_in = cs5.number_input("Desarmes", 0, value=def_stats['Desarmes'])
-            cleansheets_in = cs6.number_input("Clean Sheets", 0, value=def_stats['Clean Sheets'])
+            passes_in = cs4.number_input("Passes Certos", 0, value=int(jog_dados.get('Passes Certos', 0)))
+            desarmes_in = cs5.number_input("Desarmes", 0, value=int(jog_dados.get('Desarmes', 0)))
+            cleansheets_in = cs6.number_input("Clean Sheets", 0, value=int(jog_dados.get('Clean Sheets', 0)))
             
         st.markdown("---")
         st.markdown("##### Relatório de Atributos Técnicos e Físicos")
@@ -205,12 +211,14 @@ elif menu == "🔍 Central de Olheiros":
             with cat1:
                 st.write("**Atributos Chave (Posição)**")
                 for a in SUGESTOES_POSICAO[pos_in]:
-                    attrs_val[a] = st.slider(a, 0, 99, ovr_in, key=f"p_{a}")
+                    val_padrao = int(jog_dados.get(a, ovr_in))
+                    attrs_val[a] = st.slider(a, 0, 99, val_padrao, key=f"p_{a}")
             with cat2:
                 st.write("**Atributos Complementares**")
                 comp = [a for a in TODOS_ATRIBUTOS if a not in SUGESTOES_POSICAO[pos_in]]
                 for a in comp:
-                    attrs_val[a] = st.slider(a, 0, 99, max(1, ovr_in-10), key=f"c_{a}")
+                    val_padrao = int(jog_dados.get(a, max(1, ovr_in-10)))
+                    attrs_val[a] = st.slider(a, 0, 99, val_padrao, key=f"c_{a}")
 
         if st.button("💾 Salvar Relatório no Google Sheets", type="primary", use_container_width=True):
             if nome_in:
