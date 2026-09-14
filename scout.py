@@ -11,11 +11,20 @@ DB_FILE = "database_carreira.csv"
 
 def carregar_dados():
     if os.path.exists(DB_FILE):
-        return pd.read_csv(DB_FILE)
+        df = pd.read_csv(DB_FILE)
+        # Proteção: Garante que as colunas de estatísticas existam (para compatibilidade com seu save antigo)
+        estatisticas_novas = ['Gols', 'Assistências', 'Chutes Certos', 'Passes Certos', 'Desarmes', 'Clean Sheets']
+        for col in estatisticas_novas:
+            if col not in df.columns:
+                df[col] = 0
+        return df
     return pd.DataFrame()
 
 def salvar_dados(df_novo):
     df_novo.to_csv(DB_FILE, index=False)
+
+# Carrega os dados no início para ajudar no auto-preenchimento
+df_atual = carregar_dados()
 
 # --- CONFIGURAÇÕES TÁTICAS ---
 SUGESTOES_POSICAO = {
@@ -67,7 +76,7 @@ FUNCOES_TATICAS = {
 st.sidebar.header("📝 Registrar / Atualizar Atleta")
 
 status_in = st.sidebar.radio("Status no Modo Carreira", ["Meu Elenco", "Alvo de Transferência"])
-nome_in = st.sidebar.text_input("Nome do Atleta").strip()
+nome_in = st.sidebar.text_input("Nome do Atleta (Pressione Enter para buscar stats)").strip()
 pos_in = st.sidebar.selectbox("Posição", list(SUGESTOES_POSICAO.keys()))
 
 st.sidebar.subheader("Dados de Carreira")
@@ -76,6 +85,23 @@ idade_in = col1.number_input("Idade", min_value=15, max_value=45, value=22)
 ovr_in = col2.number_input("OVR (Geral)", min_value=1, max_value=99, value=75)
 pot_in = col1.number_input("Potencial", min_value=1, max_value=99, value=85)
 valor_in = col2.number_input("Valor (€ Mi)", min_value=0.0, value=10.0, step=0.5)
+
+# --- LÓGICA DE AUTO-PREENCHIMENTO DE ESTATÍSTICAS ---
+def_stats = {'Gols': 0, 'Assistências': 0, 'Chutes Certos': 0, 'Passes Certos': 0, 'Desarmes': 0, 'Clean Sheets': 0}
+if nome_in and not df_atual.empty:
+    jogador_existente = df_atual[df_atual['Nome'].str.lower() == nome_in.lower()]
+    if not jogador_existente.empty:
+        for stat in def_stats.keys():
+            def_stats[stat] = int(jogador_existente.iloc[0].get(stat, 0))
+
+st.sidebar.subheader("Estatísticas da Temporada")
+with st.sidebar.expander("Preencher Estatísticas (Opcional)", expanded=False):
+    gols_in = st.number_input("Gols", min_value=0, value=def_stats['Gols'], step=1)
+    asts_in = st.number_input("Assistências", min_value=0, value=def_stats['Assistências'], step=1)
+    chutes_in = st.number_input("Chutes Certos", min_value=0, value=def_stats['Chutes Certos'], step=1)
+    passes_in = st.number_input("Passes Certos", min_value=0, value=def_stats['Passes Certos'], step=1)
+    desarmes_in = st.number_input("Desarmes", min_value=0, value=def_stats['Desarmes'], step=1)
+    cleansheets_in = st.number_input("Clean Sheets", min_value=0, value=def_stats['Clean Sheets'], step=1)
 
 attrs_val = {}
 st.sidebar.subheader("Atributos Físicos/Técnicos (0-99)")
@@ -89,13 +115,13 @@ with st.sidebar.expander("Preencher Atributos Chave", expanded=False):
 
 if st.sidebar.button("💾 Salvar Atleta"):
     if nome_in:
-        df_atual = carregar_dados()
-        
         dados_completos = {a: 50 for a in TODOS_ATRIBUTOS}
         dados_completos.update(attrs_val)
         dados_completos.update({
             'Nome': nome_in, 'Status': status_in, 'Posição': pos_in, 
-            'Idade': idade_in, 'OVR': ovr_in, 'Potencial': pot_in, 'Valor (€M)': valor_in
+            'Idade': idade_in, 'OVR': ovr_in, 'Potencial': pot_in, 'Valor (€M)': valor_in,
+            'Gols': gols_in, 'Assistências': asts_in, 'Chutes Certos': chutes_in,
+            'Passes Certos': passes_in, 'Desarmes': desarmes_in, 'Clean Sheets': cleansheets_in
         })
         
         if not df_atual.empty:
@@ -103,7 +129,7 @@ if st.sidebar.button("💾 Salvar Atleta"):
             
         df_novo = pd.concat([df_atual, pd.DataFrame([dados_completos])], ignore_index=True)
         salvar_dados(df_novo)
-        st.sidebar.success(f"{nome_in} salvo no banco de dados!")
+        st.sidebar.success(f"{nome_in} salvo/atualizado com sucesso!")
         st.rerun()
 
 # --- CONTEÚDO PRINCIPAL ---
@@ -111,7 +137,7 @@ st.title("⚽ Dashboard do Manager")
 df = carregar_dados()
 
 if not df.empty:
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 Meu Elenco", "🎯 DNA Tático", "🏋️ Plano de Treino", "⚔️ Comparação (Scout)"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 Meu Elenco", "🎯 DNA Tático", "🏋️ Plano de Treino", "⚔️ Comparação", "🏆 Ranking"])
     
     with tab1:
         st.header("Visão Geral do Plantel")
@@ -124,8 +150,7 @@ if not df.empty:
             c3.metric("Idade Média", round(df_elenco['Idade'].mean(), 1))
             c4.metric("Valor Total do Elenco", f"€ {df_elenco['Valor (€M)'].sum():.1f}M")
             
-            # Tabela formatada para visualização rápida
-            colunas_exibicao = ['Nome', 'Posição', 'Idade', 'OVR', 'Potencial', 'Valor (€M)']
+            colunas_exibicao = ['Nome', 'Posição', 'Idade', 'OVR', 'Potencial', 'Valor (€M)', 'Gols', 'Assistências']
             st.dataframe(df_elenco[colunas_exibicao].sort_values(by='OVR', ascending=False), use_container_width=True, hide_index=True)
         else:
             st.warning("Seu elenco está vazio. Registre jogadores e marque o status como 'Meu Elenco'.")
@@ -135,7 +160,6 @@ if not df.empty:
         sel = st.selectbox("Selecione o Atleta para Análise Tática:", df['Nome'].unique())
         d = df[df['Nome'] == sel].iloc[0]
         
-        # --- CÁLCULO DA FUNÇÃO TÁTICA IDEAL ---
         posicao_jogador = d['Posição']
         funcoes_possiveis = FUNCOES_TATICAS.get(posicao_jogador, {})
         
@@ -156,7 +180,6 @@ if not df.empty:
                 
         st.divider()
 
-        # --- FIT COM O ESTILO DO TIME ---
         st.subheader("Compatibilidade com o Estilo de Jogo da Equipe")
         fits = {e: round(sum([d.get(a, 0) for a in atts]) / len(atts), 1) for e, atts in ESTILOS_TATICOS.items()}
         fit_df = pd.DataFrame(list(fits.items()), columns=['Estilo', 'Fit %'])
@@ -202,6 +225,37 @@ if not df.empty:
         fig_c.add_trace(go.Scatterpolar(r=[d2.get(a, 0) for a in atts_c], theta=atts_c, fill='toself', name=j2))
         fig_c.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 99]))) 
         st.plotly_chart(fig_c, use_container_width=True)
+
+    with tab5:
+        st.header("🏆 Ranking de Desempenho")
+        
+        # Filtros de visualização
+        col_f1, col_f2 = st.columns(2)
+        pos_ranking = col_f1.selectbox("Filtrar por Posição:", ["Todas"] + list(SUGESTOES_POSICAO.keys()))
+        metrica_ranking = col_f2.selectbox("Critério de Ranking:", ["Gols", "Assistências", "Chutes Certos", "Passes Certos", "Desarmes", "Clean Sheets"])
+        
+        df_rank = df[df['Status'] == 'Meu Elenco'].copy()
+        
+        if pos_ranking != "Todas":
+            df_rank = df_rank[df_rank['Posição'] == pos_ranking]
+            
+        if not df_rank.empty:
+            df_rank = df_rank.sort_values(by=metrica_ranking, ascending=False)
+            
+            # Mostra Top 5 em Gráfico
+            st.subheader(f"Top 5 - {metrica_ranking}")
+            top5 = df_rank.head(5)
+            fig_rank = px.bar(top5, x='Nome', y=metrica_ranking, text=metrica_ranking,
+                              color=metrica_ranking, color_continuous_scale='Blues')
+            fig_rank.update_traces(textposition='outside')
+            st.plotly_chart(fig_rank, use_container_width=True)
+            
+            # Tabela completa
+            st.subheader("Tabela Completa de Estatísticas")
+            colunas_stats = ['Nome', 'Posição', 'Gols', 'Assistências', 'Chutes Certos', 'Passes Certos', 'Desarmes', 'Clean Sheets']
+            st.dataframe(df_rank[colunas_stats], use_container_width=True, hide_index=True)
+        else:
+            st.warning("Nenhum jogador encontrado para este filtro. Verifique se há jogadores cadastrados como 'Meu Elenco'.")
 
     st.divider()
     with st.expander("⚙️ Gerenciar Banco de Dados"):
