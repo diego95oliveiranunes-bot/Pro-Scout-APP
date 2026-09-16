@@ -8,29 +8,49 @@ from gspread_dataframe import set_with_dataframe, get_as_dataframe
 import json
 import os
 
-st.set_page_config(page_title="ProScout Analyst", layout="wide", page_icon="📊")
+# 1. LAYOUT ALTERADO PARA 'centered' (Melhor adaptação em telas de celular)
+st.set_page_config(page_title="ProScout Mobile", layout="centered", page_icon="📱")
 
-# --- ESTILIZAÇÃO VISUAL (Estilo Wyscout/Sofascore) ---
+# --- ESTILIZAÇÃO VISUAL (Mobile-Friendly) ---
 st.markdown("""
     <style>
+    /* Ajustes para os Cards no celular */
     div[data-testid="metric-container"] {
         background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
-        padding: 15px;
+        padding: 10px; /* Reduzido para caber melhor no mobile */
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border-left: 5px solid #2E7D32;
+        border-left: 4px solid #2E7D32;
     }
     div[data-testid="metric-container"] label {
         color: #718096 !important;
         font-weight: 600;
-        font-size: 0.95rem;
+        font-size: 0.85rem; /* Texto menor para não quebrar linha */
     }
     div[data-testid="metric-container"] div {
         color: #1A365D !important;
+        font-size: 1.5rem !important; /* Números mais proporcionais */
     }
+    
+    /* Melhorando a rolagem horizontal de Tabs no celular */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Ocultar menus desnecessários do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+    
+    /* Reduzir margens gerais no celular */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -46,7 +66,7 @@ def get_gspread_client():
         client = gspread.authorize(creds)
         return client
     except Exception as e:
-        st.error(f"Erro ao configurar as credenciais do Google: {e}")
+        st.error(f"Erro nas credenciais: {e}")
         return None
 
 def carregar_dados():
@@ -56,17 +76,14 @@ def carregar_dados():
             sheet = client.open("Database_Scout").worksheet("Jogadores")
             df = get_as_dataframe(sheet, evaluate_formulas=True)
             df = df.dropna(how='all').dropna(axis=1, how='all')
-            
             if df.empty or 'Nome' not in df.columns:
                 return pd.DataFrame()
-            
             estatisticas_novas = ['Gols', 'Assistências', 'Chutes Certos', 'Passes Certos', 'Desarmes', 'Clean Sheets']
             for col in estatisticas_novas:
                 if col not in df.columns:
                     df[col] = 0
             return df
-        except Exception as e:
-            st.error(f"Aviso: Não foi possível ler a planilha. Detalhes: {e}")
+        except Exception:
             return pd.DataFrame()
     return pd.DataFrame()
 
@@ -78,14 +95,13 @@ def salvar_dados(df_novo):
             sheet.clear()
             set_with_dataframe(sheet, df_novo)
             return True
-        except Exception as e:
-            st.error(f"Erro ao salvar na planilha: {e}")
+        except Exception:
             return False
     return False
 
 df_atual = carregar_dados()
 
-# --- CONFIGURAÇÕES TÁTICAS (NOVAS POSIÇÕES DETALHADAS) ---
+# --- CONFIGURAÇÕES TÁTICAS (MANTIDAS) ---
 SUGESTOES_POSICAO = {
     "Goleiro": ["Reflexo", "Elasticidade", "Saída de Gol", "Posicionamento", "Jogo com os Pés", "Comunicação"],
     "Zagueiro": ["Posicionamento", "Força", "Impulsão", "Cabeceio", "Divididas", "Desarme"],
@@ -100,183 +116,139 @@ SUGESTOES_POSICAO = {
     "Ponta Esquerdo": ["Velocidade", "Drible", "Agilidade", "Cruzamento", "Finalização", "Controle de Bola"],
     "Centroavante": ["Finalização", "Posicionamento", "Força", "Cabeceio", "Impulsão", "Controle de Bola"]
 }
-
-TODOS_ATRIBUTOS = list(set([item for sublist in SUGESTOES_POSICAO.values() for item in sublist] + 
-                           ["Resistência", "Interceptação", "Divididas", "Passe Curto", "Drible", "Cruzamento"]))
+TODOS_ATRIBUTOS = list(set([item for sublist in SUGESTOES_POSICAO.values() for item in sublist] + ["Resistência", "Interceptação", "Divididas", "Passe Curto", "Drible", "Cruzamento"]))
 
 ESTILOS_TATICOS = {
-    "Gegenpressing (Pressão)": ["Resistência", "Agilidade", "Divididas", "Velocidade", "Interceptação"],
-    "Tiki-Taka (Posse de Bola)": ["Passe", "Visão", "Controle de Bola", "Passe Curto", "Posicionamento"],
-    "Goleiro Líbero (Saída Curta)": ["Jogo com os Pés", "Passe Curto", "Visão", "Posicionamento", "Saída de Gol"],
-    "Jogo de Pontas (Cruzamentos)": ["Velocidade", "Cruzamento", "Drible", "Agilidade", "Finalização"],
-    "Jogo Direto (Longas)": ["Força", "Impulsão", "Cabeceio", "Passe", "Finalização"],
-    "Contra-Ataque Rápido": ["Velocidade", "Agilidade", "Finalização", "Drible", "Visão"]
+    "Gegenpressing": ["Resistência", "Agilidade", "Divididas", "Velocidade", "Interceptação"],
+    "Tiki-Taka": ["Passe", "Visão", "Controle de Bola", "Passe Curto", "Posicionamento"],
+    "Goleiro Líbero": ["Jogo com os Pés", "Passe Curto", "Visão", "Posicionamento", "Saída de Gol"],
+    "Jogo de Pontas": ["Velocidade", "Cruzamento", "Drible", "Agilidade", "Finalização"],
+    "Jogo Direto": ["Força", "Impulsão", "Cabeceio", "Passe", "Finalização"],
+    "Contra-Ataque": ["Velocidade", "Agilidade", "Finalização", "Drible", "Visão"]
 }
 
 FUNCOES_TATICAS = {
-    "Goleiro": {
-        "Goleiro Tradicional": ["Reflexo", "Elasticidade", "Posicionamento", "Comunicação"], 
-        "Goleiro Líbero": ["Jogo com os Pés", "Saída de Gol", "Visão", "Passe Curto"]
-    },
-    "Zagueiro": {
-        "Zagueiro Raiz (Defensivo)": ["Força", "Divididas", "Desarme", "Cabeceio"], 
-        "Zagueiro Construtor": ["Passe Curto", "Visão", "Controle de Bola", "Posicionamento"]
-    },
-    "Lateral Direito": {
-        "Ala Ofensivo": ["Velocidade", "Cruzamento", "Drible", "Resistência", "Agilidade"], 
-        "Lateral Defensivo": ["Desarme", "Posicionamento", "Força", "Interceptação"]
-    },
-    "Lateral Esquerdo": {
-        "Ala Ofensivo": ["Velocidade", "Cruzamento", "Drible", "Resistência", "Agilidade"], 
-        "Lateral Defensivo": ["Desarme", "Posicionamento", "Força", "Interceptação"]
-    },
-    "Volante": {
-        "Primeiro Volante (Cão de Guarda)": ["Desarme", "Interceptação", "Força", "Posicionamento"], 
-        "Segundo Volante": ["Resistência", "Passe Curto", "Divididas", "Visão"],
-        "Armador Recuado": ["Visão", "Passe", "Controle de Bola", "Posicionamento"]
-    },
-    "Meia Central": {
-        "Box-to-Box (Área a Área)": ["Resistência", "Velocidade", "Divididas", "Finalização"], 
-        "Armador Central": ["Visão", "Passe", "Controle de Bola", "Drible", "Passe Curto"], 
-        "Meia Recuperador": ["Desarme", "Interceptação", "Resistência", "Posicionamento"]
-    },
-    "Meia Direito": {
-        "Meia Aberto": ["Velocidade", "Cruzamento", "Resistência", "Passe", "Controle de Bola"],
-        "Armador Aberto": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"]
-    },
-    "Meia Esquerdo": {
-        "Meia Aberto": ["Velocidade", "Cruzamento", "Resistência", "Passe", "Controle de Bola"],
-        "Armador Aberto": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"]
-    },
-    "Meia Atacante": {
-        "Camisa 10 Clássico": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"],
-        "Trequartista": ["Visão", "Passe", "Drible", "Finalização", "Posicionamento"],
-        "Atacante Sombra": ["Finalização", "Posicionamento", "Velocidade", "Agilidade"]
-    },
-    "Ponta Direito": {
-        "Ponta Clássico (Fundo)": ["Velocidade", "Cruzamento", "Drible", "Agilidade"],
-        "Ponta Invertido": ["Velocidade", "Drible", "Finalização", "Agilidade", "Visão"]
-    },
-    "Ponta Esquerdo": {
-        "Ponta Clássico (Fundo)": ["Velocidade", "Cruzamento", "Drible", "Agilidade"],
-        "Ponta Invertido": ["Velocidade", "Drible", "Finalização", "Agilidade", "Visão"]
-    },
-    "Centroavante": {
-        "Falso 9": ["Passe Curto", "Visão", "Controle de Bola", "Drible"], 
-        "Homem Alvo": ["Força", "Impulsão", "Cabeceio", "Posicionamento"], 
-        "Atacante Avançado": ["Velocidade", "Agilidade", "Finalização", "Posicionamento"],
-        "Centroavante Fixo": ["Finalização", "Cabeceio", "Força", "Posicionamento"]
-    }
+    "Goleiro": {"Goleiro Tradicional": ["Reflexo", "Elasticidade", "Posicionamento", "Comunicação"], "Goleiro Líbero": ["Jogo com os Pés", "Saída de Gol", "Visão", "Passe Curto"]},
+    "Zagueiro": {"Zagueiro Raiz": ["Força", "Divididas", "Desarme", "Cabeceio"], "Zagueiro Construtor": ["Passe Curto", "Visão", "Controle de Bola", "Posicionamento"]},
+    "Lateral Direito": {"Ala Ofensivo": ["Velocidade", "Cruzamento", "Drible", "Resistência", "Agilidade"], "Lateral Defensivo": ["Desarme", "Posicionamento", "Força", "Interceptação"]},
+    "Lateral Esquerdo": {"Ala Ofensivo": ["Velocidade", "Cruzamento", "Drible", "Resistência", "Agilidade"], "Lateral Defensivo": ["Desarme", "Posicionamento", "Força", "Interceptação"]},
+    "Volante": {"Cão de Guarda": ["Desarme", "Interceptação", "Força", "Posicionamento"], "Segundo Volante": ["Resistência", "Passe Curto", "Divididas", "Visão"], "Armador Recuado": ["Visão", "Passe", "Controle de Bola", "Posicionamento"]},
+    "Meia Central": {"Box-to-Box": ["Resistência", "Velocidade", "Divididas", "Finalização"], "Armador Central": ["Visão", "Passe", "Controle de Bola", "Drible", "Passe Curto"], "Meia Recuperador": ["Desarme", "Interceptação", "Resistência", "Posicionamento"]},
+    "Meia Direito": {"Meia Aberto": ["Velocidade", "Cruzamento", "Resistência", "Passe", "Controle de Bola"], "Armador Aberto": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"]},
+    "Meia Esquerdo": {"Meia Aberto": ["Velocidade", "Cruzamento", "Resistência", "Passe", "Controle de Bola"], "Armador Aberto": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"]},
+    "Meia Atacante": {"Camisa 10": ["Visão", "Passe", "Drible", "Controle de Bola", "Agilidade"], "Trequartista": ["Visão", "Passe", "Drible", "Finalização", "Posicionamento"], "Atacante Sombra": ["Finalização", "Posicionamento", "Velocidade", "Agilidade"]},
+    "Ponta Direito": {"Ponta Clássico": ["Velocidade", "Cruzamento", "Drible", "Agilidade"], "Ponta Invertido": ["Velocidade", "Drible", "Finalização", "Agilidade", "Visão"]},
+    "Ponta Esquerdo": {"Ponta Clássico": ["Velocidade", "Cruzamento", "Drible", "Agilidade"], "Ponta Invertido": ["Velocidade", "Drible", "Finalização", "Agilidade", "Visão"]},
+    "Centroavante": {"Falso 9": ["Passe Curto", "Visão", "Controle de Bola", "Drible"], "Homem Alvo": ["Força", "Impulsão", "Cabeceio", "Posicionamento"], "Atacante Avançado": ["Velocidade", "Agilidade", "Finalização", "Posicionamento"], "Centroavante Fixo": ["Finalização", "Cabeceio", "Força", "Posicionamento"]}
 }
 
 # ==========================================
-# MENU LATERAL (Apenas Navegação)
+# MENU LATERAL (No celular, vira o menu hambúrguer)
 # ==========================================
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3593/3593539.png", width=60)
-st.sidebar.title("ProScout")
+st.sidebar.title("📱 Menu Scout")
 st.sidebar.markdown("---")
-menu = st.sidebar.radio("Navegação Principal:", [
+menu = st.sidebar.radio("Navegação:", [
     "🏠 Visão do Plantel", 
-    "🔍 Central de Olheiros", 
-    "🎯 Análise e Treino", 
-    "📊 Relatórios e Ranking",
-    "⚙️ Banco de Dados"
+    "🔍 Olheiros (Adicionar)", 
+    "🎯 Tática e Treino", 
+    "📊 Ranking da Temporada",
+    "⚙️ Ajustes (Banco)"
 ])
 
 # ==========================================
 # PÁGINA 1: VISÃO DO PLANTEL
 # ==========================================
 if menu == "🏠 Visão do Plantel":
-    st.title("📋 Meu Elenco")
+    st.subheader("📋 Meu Elenco")
     
     if not df_atual.empty:
         df_elenco = df_atual[df_atual['Status'] == 'Meu Elenco']
         if not df_elenco.empty:
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Atletas no Plantel", len(df_elenco))
-            c2.metric("Rating (OVR) Médio", round(df_elenco['OVR'].mean(), 1))
+            # Layout em Grid 2x2 (Perfeito para telas estreitas de celular)
+            c1, c2 = st.columns(2)
+            c1.metric("Atletas", len(df_elenco))
+            c2.metric("OVR Médio", round(df_elenco['OVR'].mean(), 1))
+            
+            c3, c4 = st.columns(2)
             c3.metric("Idade Média", round(df_elenco['Idade'].mean(), 1))
             c4.metric("Valor Total", f"€ {df_elenco['Valor (€M)'].sum():.1f}M")
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("Relação de Jogadores")
-            colunas = ['Nome', 'Posição', 'Idade', 'OVR', 'Potencial', 'Valor (€M)', 'Gols', 'Assistências']
-            st.dataframe(df_elenco[colunas].sort_values(by='OVR', ascending=False), use_container_width=True, hide_index=True)
+            st.markdown("---")
+            st.markdown("##### Relação de Jogadores (Deslize ▶)")
+            # Reduzidas as colunas para não ficar gigante no celular
+            colunas_mobile = ['Nome', 'Posição', 'Idade', 'OVR', 'Potencial']
+            st.dataframe(df_elenco[colunas_mobile].sort_values(by='OVR', ascending=False), use_container_width=True, hide_index=True)
         else:
-            st.info("Você ainda não tem jogadores no seu elenco. Cadastre novos em Central de Olheiros.")
+            st.info("Sem jogadores no elenco. Cadastre em 'Olheiros'.")
     else:
-        st.info("Banco de dados vazio ou recém-criado. Adicione seu primeiro jogador!")
+        st.info("Banco de dados vazio.")
 
 # ==========================================
 # PÁGINA 2: CENTRAL DE OLHEIROS
 # ==========================================
-elif menu == "🔍 Central de Olheiros":
-    st.title("🔍 Central de Olheiros")
+elif menu == "🔍 Olheiros (Adicionar)":
+    st.subheader("🔍 Gestão de Atletas")
     
-    tab_registro, tab_comparacao = st.tabs(["📝 Registrar / Editar Jogador", "⚔️ Comparar Atletas"])
+    tab_registro, tab_comparacao = st.tabs(["📝 Registrar/Editar", "⚔️ Comparar"])
     
     with tab_registro:
-        col_form1, col_form2 = st.columns(2)
+        # Tudo em uma coluna principal para fluir no scroll do celular
+        nome_in = st.text_input("Nome do Atleta (Enter para buscar)").strip()
         
-        with col_form1:
-            nome_in = st.text_input("Nome do Atleta (Digite e tecle Enter para carregar dados)").strip()
-            
-            jog_dados = {}
-            if nome_in and not df_atual.empty:
-                busca = df_atual[df_atual['Nome'].str.lower() == nome_in.lower()]
-                if not busca.empty:
-                    jog_dados = busca.iloc[0].to_dict()
-                    st.success("✅ Dados do jogador carregados! Edite o que for necessário abaixo.")
-            
-            def get_index(lista, valor):
-                return lista.index(valor) if valor in lista else 0
+        jog_dados = {}
+        if nome_in and not df_atual.empty:
+            busca = df_atual[df_atual['Nome'].str.lower() == nome_in.lower()]
+            if not busca.empty:
+                jog_dados = busca.iloc[0].to_dict()
+                st.success("✅ Dados carregados!")
+        
+        def get_index(lista, valor): return lista.index(valor) if valor in lista else 0
 
-            lista_status = ["Meu Elenco", "Alvo de Transferência"]
-            status_in = st.selectbox("Status", lista_status, index=get_index(lista_status, jog_dados.get('Status', 'Meu Elenco')))
-            
-            lista_pos = list(SUGESTOES_POSICAO.keys())
-            pos_in = st.selectbox("Posição Principal", lista_pos, index=get_index(lista_pos, jog_dados.get('Posição', 'Centroavante')))
-            
-            st.markdown("##### Perfil do Atleta")
-            cx1, cx2, cx3, cx4 = st.columns(4)
+        # Divisão 2x2 para inputs básicos economizando espaço vertical
+        cx_stat, cx_pos = st.columns(2)
+        status_in = cx_stat.selectbox("Status", ["Meu Elenco", "Alvo"], index=get_index(["Meu Elenco", "Alvo"], jog_dados.get('Status', 'Meu Elenco')))
+        pos_in = cx_pos.selectbox("Posição", list(SUGESTOES_POSICAO.keys()), index=get_index(list(SUGESTOES_POSICAO.keys()), jog_dados.get('Posição', 'Centroavante')))
+        
+        with st.expander("👤 Perfil (Idade, OVR, Valor)", expanded=True):
+            # Grid 2x2 para celular
+            cx1, cx2 = st.columns(2)
             idade_in = cx1.number_input("Idade", 15, 45, int(jog_dados.get('Idade', 22)))
             ovr_in = cx2.number_input("OVR", 1, 99, int(jog_dados.get('OVR', 75)))
+            
+            cx3, cx4 = st.columns(2)
             pot_in = cx3.number_input("Potencial", 1, 99, int(jog_dados.get('Potencial', 85)))
             valor_in = cx4.number_input("Valor (€M)", 0.0, step=0.5, value=float(jog_dados.get('Valor (€M)', 10.0)))
 
-        with col_form2:
-            st.markdown("##### Estatísticas da Temporada")
-            cs1, cs2, cs3 = st.columns(3)
+        with st.expander("📈 Estatísticas da Temporada", expanded=False):
+            # Grid 2x3 adaptada para mobile
+            cs1, cs2 = st.columns(2)
             gols_in = cs1.number_input("Gols", 0, value=int(jog_dados.get('Gols', 0)))
             asts_in = cs2.number_input("Assistências", 0, value=int(jog_dados.get('Assistências', 0)))
-            chutes_in = cs3.number_input("Chutes Certos", 0, value=int(jog_dados.get('Chutes Certos', 0)))
             
-            cs4, cs5, cs6 = st.columns(3)
+            cs3, cs4 = st.columns(2)
+            chutes_in = cs3.number_input("Chutes Certos", 0, value=int(jog_dados.get('Chutes Certos', 0)))
             passes_in = cs4.number_input("Passes Certos", 0, value=int(jog_dados.get('Passes Certos', 0)))
+            
+            cs5, cs6 = st.columns(2)
             desarmes_in = cs5.number_input("Desarmes", 0, value=int(jog_dados.get('Desarmes', 0)))
             cleansheets_in = cs6.number_input("Clean Sheets", 0, value=int(jog_dados.get('Clean Sheets', 0)))
-            
-        st.markdown("---")
-        st.markdown("##### Relatório de Atributos Técnicos e Físicos")
-        attrs_val = {}
-        
-        with st.expander("Expandir para editar notas de atributos (0-99)", expanded=True):
-            cat1, cat2 = st.columns(2)
-            with cat1:
-                st.write("**Atributos Chave (Posição)**")
-                for a in SUGESTOES_POSICAO[pos_in]:
-                    val_padrao = int(jog_dados.get(a, ovr_in))
-                    attrs_val[a] = st.slider(a, 0, 99, val_padrao, key=f"p_{a}")
-            with cat2:
-                st.write("**Atributos Complementares**")
-                comp = [a for a in TODOS_ATRIBUTOS if a not in SUGESTOES_POSICAO[pos_in]]
-                for a in comp:
-                    val_padrao = int(jog_dados.get(a, max(1, ovr_in-10)))
-                    attrs_val[a] = st.slider(a, 0, 99, val_padrao, key=f"c_{a}")
 
-        if st.button("💾 Salvar Relatório no Google Sheets", type="primary", use_container_width=True):
+        attrs_val = {}
+        with st.expander("⚙️ Atributos Técnicos/Físicos", expanded=False):
+            st.markdown("**Principais (Posição)**")
+            for a in SUGESTOES_POSICAO[pos_in]:
+                val_padrao = int(jog_dados.get(a, ovr_in))
+                attrs_val[a] = st.slider(a, 0, 99, val_padrao, key=f"p_{a}")
+            
+            st.markdown("**Secundários**")
+            comp = [a for a in TODOS_ATRIBUTOS if a not in SUGESTOES_POSICAO[pos_in]]
+            for a in comp:
+                val_padrao = int(jog_dados.get(a, max(1, ovr_in-10)))
+                attrs_val[a] = st.slider(a, 0, 99, val_padrao, key=f"c_{a}")
+
+        if st.button("💾 Salvar Atleta", type="primary", use_container_width=True):
             if nome_in:
-                with st.spinner("Salvando no Google Sheets..."):
+                with st.spinner("Salvando..."):
                     dados_completos = {a: 50 for a in TODOS_ATRIBUTOS}
                     dados_completos.update(attrs_val)
                     dados_completos.update({
@@ -289,19 +261,16 @@ elif menu == "🔍 Central de Olheiros":
                     df_novo = df_atual.copy()
                     if not df_novo.empty:
                         df_novo = df_novo[df_novo['Nome'] != nome_in]
-                        
                     df_novo = pd.concat([df_novo, pd.DataFrame([dados_completos])], ignore_index=True)
                     
                     if salvar_dados(df_novo):
-                        st.success(f"✅ {nome_in} salvo e sincronizado na nuvem!")
+                        st.success(f"✅ Salvo!")
                         st.rerun()
 
     with tab_comparacao:
         if not df_atual.empty and len(df_atual) > 1:
-            st.subheader("Análise Comparativa (Radar)")
-            col_a, col_b = st.columns(2)
-            j1 = col_a.selectbox("Jogador 1:", df_atual['Nome'].unique(), index=0)
-            j2 = col_b.selectbox("Jogador 2:", df_atual['Nome'].unique(), index=1)
+            j1 = st.selectbox("Jogador 1:", df_atual['Nome'].unique(), index=0)
+            j2 = st.selectbox("Jogador 2:", df_atual['Nome'].unique(), index=1)
             
             d1, d2 = df_atual[df_atual['Nome'] == j1].iloc[0], df_atual[df_atual['Nome'] == j2].iloc[0]
             atts_c = SUGESTOES_POSICAO[d1['Posição']]
@@ -309,129 +278,109 @@ elif menu == "🔍 Central de Olheiros":
             fig_c = go.Figure()
             fig_c.add_trace(go.Scatterpolar(r=[d1.get(a, 0) for a in atts_c], theta=atts_c, fill='toself', name=j1, line_color="#1A365D")) 
             fig_c.add_trace(go.Scatterpolar(r=[d2.get(a, 0) for a in atts_c], theta=atts_c, fill='toself', name=j2, line_color="#2E7D32")) 
-            fig_c.update_layout(template="plotly_white", polar=dict(radialaxis=dict(visible=True, range=[0, 99]))) 
+            # Layout responsivo do Radar
+            fig_c.update_layout(template="plotly_white", polar=dict(radialaxis=dict(visible=True, range=[0, 99])), margin=dict(l=20, r=20, t=20, b=20)) 
             st.plotly_chart(fig_c, use_container_width=True)
         else:
-            st.warning("Adicione pelo menos 2 jogadores no banco de dados para usar a comparação.")
+            st.warning("Adicione pelo menos 2 jogadores.")
 
 # ==========================================
 # PÁGINA 3: ANÁLISE E TREINO
 # ==========================================
-elif menu == "🎯 Análise e Treino":
-    st.title("🎯 Centro de Inteligência Tática")
+elif menu == "🎯 Tática e Treino":
+    st.subheader("🎯 Inteligência Tática")
     
     if not df_atual.empty:
         sel = st.selectbox("Selecione o Atleta:", df_atual['Nome'].unique())
         d = df_atual[df_atual['Nome'] == sel].iloc[0]
         
-        tab_t, tab_tr = st.tabs(["🧩 Perfil Tático", "📈 Plano de Desenvolvimento"])
+        tab_t, tab_tr = st.tabs(["🧩 Função Ideal", "📈 Treino"])
         
         with tab_t:
-            st.subheader("Melhor Função na Posição")
             funcoes_possiveis = FUNCOES_TATICAS.get(d['Posição'], {})
-            
             if funcoes_possiveis:
                 notas_funcoes = {}
                 for funcao, atributos_necessarios in funcoes_possiveis.items():
                     nota_media = sum([d.get(a, 0) for a in atributos_necessarios]) / len(atributos_necessarios)
                     notas_funcoes[funcao] = nota_media
-                    
                 funcoes_ordenadas = sorted(notas_funcoes.items(), key=lambda x: x[1], reverse=True)
                 melhor_funcao, melhor_nota = funcoes_ordenadas[0]
                 
-                st.info(f"**Sugestão Analítica:** O sistema indica a função de **{melhor_funcao}** (Aptidão Técnica: {melhor_nota:.1f}/99)")
+                st.success(f"**Sugestão:** {melhor_funcao} ({melhor_nota:.1f}/99)")
                 
-                with st.expander("Ver outras opções de função"):
+                with st.expander("Outras funções"):
                     for func, nota in funcoes_ordenadas[1:]:
                         st.write(f"- {func}: {nota:.1f}")
             
-            st.markdown("---")
-            st.subheader("Adequação ao Modelo de Jogo")
+            st.markdown("##### Adequação ao Time")
             fits = {e: round(sum([d.get(a, 0) for a in atts]) / len(atts), 1) for e, atts in ESTILOS_TATICOS.items()}
             fit_df = pd.DataFrame(list(fits.items()), columns=['Estilo', 'Fit %'])
-            
-            fig_fit = px.bar(fit_df, x='Fit %', y='Estilo', orientation='h', color='Fit %', 
-                             color_continuous_scale='Blues', range_x=[0, 100], text='Fit %')
-            fig_fit.update_traces(textposition='outside')
-            fig_fit.update_layout(template="plotly_white", height=350)
+            fig_fit = px.bar(fit_df, x='Fit %', y='Estilo', orientation='h', color='Fit %', color_continuous_scale='Blues', range_x=[0, 100])
+            fig_fit.update_layout(template="plotly_white", height=300, margin=dict(l=0, r=0, t=20, b=0))
             st.plotly_chart(fig_fit, use_container_width=True)
 
         with tab_tr:
-            estilo = st.selectbox("Selecione o Estilo de Treino:", list(ESTILOS_TATICOS.keys()))
+            estilo = st.selectbox("Estilo de Treino:", list(ESTILOS_TATICOS.keys()))
             alvo_atts = ESTILOS_TATICOS[estilo]
             
-            c1, c2 = st.columns([2, 1])
-            with c1:
-                fig = go.Figure()
-                fig.add_trace(go.Scatterpolar(r=[d.get(a, 0) for a in alvo_atts], theta=alvo_atts, fill='toself', name='Nível Atual', line_color="#1A365D"))
-                fig.add_trace(go.Scatterpolar(r=[d['Potencial']] * len(alvo_atts), theta=alvo_atts, line_dash='dash', name='Teto (Potencial)', line_color="#E2E8F0"))
-                fig.update_layout(template="plotly_white", polar=dict(radialaxis=dict(visible=True, range=[0, 99])))
-                st.plotly_chart(fig, use_container_width=True)
-                
-            with c2:
-                st.write(f"**Focos de Evolução:**")
-                for a in alvo_atts:
-                    val = d.get(a, 0)
-                    meta = d['Potencial']
-                    if val < meta:
-                        st.progress(int(val), text=f"{a}: {val}/{meta}")
+            fig = go.Figure()
+            fig.add_trace(go.Scatterpolar(r=[d.get(a, 0) for a in alvo_atts], theta=alvo_atts, fill='toself', name='Atual', line_color="#1A365D"))
+            fig.add_trace(go.Scatterpolar(r=[d['Potencial']] * len(alvo_atts), theta=alvo_atts, line_dash='dash', name='Teto', line_color="#E2E8F0"))
+            fig.update_layout(template="plotly_white", polar=dict(radialaxis=dict(visible=True, range=[0, 99])), margin=dict(l=20, r=20, t=20, b=20))
+            st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown("**Gaps para evoluir:**")
+            for a in alvo_atts:
+                val = d.get(a, 0)
+                meta = d['Potencial']
+                if val < meta:
+                    st.progress(int(val), text=f"{a}: {val}/{meta}")
     else:
         st.warning("Banco de dados vazio.")
 
 # ==========================================
 # PÁGINA 4: RELATÓRIOS E RANKING
 # ==========================================
-elif menu == "📊 Relatórios e Ranking":
-    st.title("📊 Relatórios de Desempenho")
+elif menu == "📊 Ranking da Temporada":
+    st.subheader("📊 Ranking do Elenco")
     
     if not df_atual.empty:
         col_f1, col_f2 = st.columns(2)
-        pos_ranking = col_f1.selectbox("Filtro de Posição:", ["Todos os Jogadores"] + list(SUGESTOES_POSICAO.keys()))
-        metrica_ranking = col_f2.selectbox("Métrica Analisada:", ["Gols", "Assistências", "Chutes Certos", "Passes Certos", "Desarmes", "Clean Sheets"])
+        pos_ranking = col_f1.selectbox("Posição:", ["Todos"] + list(SUGESTOES_POSICAO.keys()))
+        metrica_ranking = col_f2.selectbox("Métrica:", ["Gols", "Assistências", "Chutes Certos", "Passes Certos", "Desarmes", "Clean Sheets"])
         
         df_rank = df_atual[df_atual['Status'] == 'Meu Elenco'].copy()
-        
-        if pos_ranking != "Todos os Jogadores":
+        if pos_ranking != "Todos":
             df_rank = df_rank[df_rank['Posição'] == pos_ranking]
             
         if not df_rank.empty:
             df_rank = df_rank.sort_values(by=metrica_ranking, ascending=False)
             
-            st.markdown(f"#### Top 5 - {metrica_ranking}")
+            st.markdown(f"**Top 5 - {metrica_ranking}**")
             top5 = df_rank.head(5)
             fig_rank = px.bar(top5, x='Nome', y=metrica_ranking, text=metrica_ranking)
             fig_rank.update_traces(marker_color='#1A365D', textposition='outside')
-            fig_rank.update_layout(template="plotly_white", height=350)
+            fig_rank.update_layout(template="plotly_white", height=300, margin=dict(l=0, r=0, t=20, b=0))
             st.plotly_chart(fig_rank, use_container_width=True)
-            
-            st.markdown("#### Tabela Completa")
-            colunas_stats = ['Nome', 'Posição', 'Gols', 'Assistências', 'Chutes Certos', 'Passes Certos', 'Desarmes', 'Clean Sheets']
-            st.dataframe(df_rank[colunas_stats], use_container_width=True, hide_index=True)
         else:
-            st.warning("Nenhum dado encontrado para o filtro aplicado no seu elenco.")
+            st.warning("Nenhum dado encontrado.")
     else:
         st.info("Banco de dados vazio.")
 
 # ==========================================
-# PÁGINA 5: BANCO DE DADOS (GOOGLE SHEETS)
+# PÁGINA 5: BANCO DE DADOS (CONFIG)
 # ==========================================
-elif menu == "⚙️ Banco de Dados":
-    st.title("⚙️ Gestão na Nuvem (Google Sheets)")
+elif menu == "⚙️ Ajustes (Banco)":
+    st.subheader("⚙️ Nuvem (Sheets)")
     
     if not df_atual.empty:
-        st.success("✅ App conectado ao Google Sheets com sucesso!")
-        st.warning("Atenção: As exclusões feitas aqui são apagadas direto da planilha.")
+        st.success("✅ Conectado ao Sheets")
+        jogador_excluir = st.selectbox("Remover jogador:", df_atual['Nome'].unique())
         
-        jogador_excluir = st.selectbox("Selecione um jogador para remover do banco:", df_atual['Nome'].unique())
-        
-        if st.button("🗑️ Excluir Jogador Definitivamente", type="primary"):
+        if st.button("🗑️ Excluir Definitivamente", type="primary", use_container_width=True):
             df_novo = df_atual[df_atual['Nome'] != jogador_excluir]
             if salvar_dados(df_novo):
-                st.success(f"{jogador_excluir} foi removido do sistema!")
+                st.success("Removido!")
                 st.rerun()
-            
-        st.markdown("---")
-        st.write("Visão direta da Planilha:")
-        st.dataframe(df_atual)
     else:
-        st.info("O banco de dados do Google Sheets está vazio. Vá em 'Central de Olheiros' para preencher a planilha pela primeira vez.")
+        st.info("Banco de dados vazio.")
